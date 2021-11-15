@@ -1,7 +1,7 @@
 const router = require ('express').Router();
 const User = require('../models/User');
 const CryptoJS = require ('crypto-js')
-const verify = require ('../routes/verifyToken')
+const verify = require ('../verifyToken')
 
 //UPDATES
 router.put('/:id', verify, async (req, res)=>{
@@ -36,12 +36,65 @@ router.delete('/:id', verify, async (req, res)=>{
         } catch (err) {
             res.status(500).json(err)
         }
-    }else 
-    res.status(403).json("You cannot delete the user")
+    }else {
+        res.status(403).json("You cannot delete the user")
+    
+    }
     
 })
 //GET single user
-//GET all user_schema
+
+router.get('/find/:id', async (req, res)=> {
+        try {
+            const user= await User.findById(req.params.id)
+            const {password, ...info}=user._doc
+            res.status(200).json(info)
+            
+        } catch (err) {
+            res.status(500).json(err)
+        }
+    })
+//GET all users
+router.get('/', verify, async (req, res)=>{
+    const query= req.query.new;
+    if (req.user.isAdmin) {
+        try {
+            const users= query ? await User.find().limit(10): await User.find();
+            res.status(200).json(users)
+            
+        } catch (err) {
+            res.status(500).json(err)
+        }
+    }else {
+        res.status(500).json("You are not authorised")
+    }
+    
+    
+})
 // GET USER STAT
+
+router.get('/stats', verify, async (req, res)=>{
+    const today = new Date();
+    const lastYear = today.setFullYear(today.setFullYear()-1);
+    try {
+        const data = await User.aggregate([
+            {
+                $project: {
+                    month: {$month: "$createdAt" },
+                },
+            },
+            {
+                $group: {
+                    _id: "$month",
+                    total: {$sum: 1},
+                },
+            },
+        ]);
+        res.status(200).json(data)
+        
+    } catch (err) {
+        res.status(500).json(err)
+    }
+})
 
 module.exports= router;
